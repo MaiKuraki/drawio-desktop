@@ -39,10 +39,24 @@ if (process.argv.indexOf('--disable-acceleration') !== -1)
 
 // Configure context menu for text fields
 contextMenu({
-	showCopyImage: false,
+	showCopyImage: true,
+	showSaveImage: true,
+	showSaveImageAs: true,
 	showLookUpSelection: false,
 	showSearchWithGoogle: false,
-	showCopyLink: false
+	showCopyLink: false,
+	showSelectAll: true,
+	append: (defaultActions, params, browserWindow) => [
+		{
+			label: 'Paste and Match Style',
+			// Only show this item when there's a text in the clipboard
+			visible: clipboard.availableFormats().includes('text/plain'),
+			click: () => {
+				// Execute the paste command in the focused window
+				browserWindow.webContents.pasteAndMatchStyle();
+			}
+		}
+	]
 });
 
 const __DEV__ = process.env.DRAWIO_ENV === 'dev'
@@ -417,7 +431,8 @@ app.whenReady().then(() =>
 	{
 		program
 	        .version(app.getVersion())
-	        .usage('[options] [input file/folder]')
+	        .usage('[options] <input file/folder>')
+			.argument('<input file/folder>', 'input drawio file or a folder with drawio files')
 	        .allowUnknownOption() //-h and --help are considered unknown!!
 	        .option('-c, --create', 'creates a new empty file if no file is passed')
 	        .option('-k, --check', 'does not overwrite existing files')
