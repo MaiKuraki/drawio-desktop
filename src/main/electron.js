@@ -1953,6 +1953,14 @@ function checkFileContent(body, enc)
 			{
 				return true;
 			}
+
+			// Embed cases img and iframe
+			if (c2 == 'i' && c3 == 'm' && c4 == 'g' && c5 == ' '
+					|| (c2 == 'i' && c3 == 'f' && c4 == 'r' && c5 == 'a'
+							&& c6 == 'm' && c7 == 'e' && c8 == ' '))
+			{
+				return true;
+			}
 		}
 
 		// big and little (identical) endian UTF-8 encodings, with BOM
