@@ -47,6 +47,7 @@ jobs:
     - name: Prepare for Windows Build
       shell: powershell #The default shell for Windows
       run: |
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
         npm install -g yarn
         yarn install
     - name: Build for Windows (x32 & arm64)
@@ -68,9 +69,37 @@ jobs:
         #Enable auto-update again
         yarn run sync
         yarn run release-win
+    - name: Build unpacked Windows x64 (for zip portable)
+      shell: powershell
+      run: |
+        yarn run sync disableUpdate
+        yarn run electron-builder --win --x64 --dir
+
+    - name: Zip unpacked x64 build
+      shell: powershell
+      run: |
+        $version = "${{ github.ref }}" -replace 'refs/tags/v', ''
+        cd dist
+        7z a "draw.io-$version-windows.zip" ".\win-unpacked\*"
+
     - name: Build for Windows (APPX)
       shell: powershell #The default shell for Windows
       run: |
         #Disable auto-update for appx also
         yarn run sync disableUpdate
         yarn run release-appx
+
+    - name: Install GitHub CLI
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri https://github.com/cli/cli/releases/download/v2.73.0/gh_2.73.0_windows_amd64.msi -OutFile ghcli.msi
+        Start-Process msiexec.exe -ArgumentList '/i', 'ghcli.msi', '/quiet', '/norestart' -Wait
+
+    - name: Upload portable zip to GitHub Release
+      shell: powershell
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        $version = "${{ github.ref }}" -replace 'refs/tags/v', ''
+        gh release upload "v$version" "dist/draw.io-$version-windows.zip" --clobber
+
