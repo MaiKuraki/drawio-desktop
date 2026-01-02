@@ -27,7 +27,6 @@ Tooling versions are pinned in the GitHub Actions workflows to ensure reproducib
 | npm | (bundled with Node) | — |
 
 > **Note:** npm is bundled with Node.js, ensuring consistent versions across environments.
-| npm | (bundled with Node) | — |
 
 When updating tooling versions:
 1. Update the version in all workflow files
@@ -120,9 +119,13 @@ After the prepare-release workflow completes:
 
 ### 4.4 Publish Release
 
-1. Add release notes (Section 8)
-2. **Obtain Reviewer approval** (Section 5)
-3. Click "Publish release"
+After all build workflows complete successfully:
+
+1. Go to GitHub Releases - a draft release will have been created with all artifacts
+2. Verify all platform builds are present (Windows builds are automatically signed via CI using `CSC_LINK` secret)
+3. Add release notes (Section 8)
+4. **Obtain Reviewer approval** (Section 5)
+5. Click "Publish release"
 
 ---
 
