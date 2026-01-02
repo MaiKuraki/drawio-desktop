@@ -18,8 +18,7 @@ on:
         default: false
 
 env:
-  NODE_VERSION: '24'
-  YARN_VERSION: '4.12.0'
+  NODE_VERSION: '20'
 
 jobs:
   prepare-release:
@@ -52,7 +51,6 @@ jobs:
       - name: Setup Yarn
         run: |
           corepack enable
-          corepack prepare yarn@${{ env.YARN_VERSION }} --activate
           echo "Node version: $(node --version)"
           echo "Yarn version: $(yarn --version)"
           echo "npm version: $(npm --version)"
