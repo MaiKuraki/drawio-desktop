@@ -30,6 +30,7 @@ jobs:
     
     permissions:
       contents: write
+      pull-requests: write
       
     steps:
       - name: Validate version format
@@ -221,28 +222,81 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
+          # Save release notes content before cleanup
+          cp release-notes.md /tmp/release-notes.md
+          
+          # Create release branch
+          git checkout -b "release/v${{ env.VERSION }}"
+          
+          # Remove generated files that shouldn't be committed
+          rm -f audit-results.json audit-report.txt outdated-report.txt release-notes.md
+          
           git add -A
           git commit -m "Prepare release v${{ env.VERSION }}
 
           - Updated drawio submodule to ${{ env.DRAWIO_REF }} (${{ env.DRAWIO_COMMIT }})
           - Updated package.json version to ${{ env.VERSION }}
+          - Electron version: ${{ env.ELECTRON_VERSION }}
           
-          Automated by prepare-release workflow
-          Node.js: $(node --version)
-          npm: $(npm --version)"
+          Automated by prepare-release workflow"
           
-          git push origin HEAD
+          git push origin "release/v${{ env.VERSION }}"
           
-      - name: Create version tag
+          # Restore release notes for PR creation
+          cp /tmp/release-notes.md release-notes.md
+          
+      - name: Create Pull Request
         if: inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git tag -a "v${{ env.VERSION }}" -m "Release v${{ env.VERSION }}"
-          git push origin "v${{ env.VERSION }}"
+          # Get the release notes content
+          RELEASE_NOTES=$(cat release-notes.md)
+          
+          # Create PR
+          PR_URL=$(gh pr create \
+            --base dev \
+            --head "release/v${{ env.VERSION }}" \
+            --title "Release v${{ env.VERSION }}" \
+            --body "## Release Preparation
+
+          This PR prepares release v${{ env.VERSION }}.
+
+          ### Changes
+          - Updated drawio submodule to ${{ env.DRAWIO_REF }}
+          - Updated package.json version to ${{ env.VERSION }}
+          - Electron version: ${{ env.ELECTRON_VERSION }}
+
+          ### Audit Results
+          - npm audit: ✅ No critical/high vulnerabilities
+
+          ### After Merging
+          Create and push the tag to trigger builds:
+          \`\`\`bash
+          git checkout dev
+          git pull
+          git tag -a v${{ env.VERSION }} -m \"Release v${{ env.VERSION }}\"
+          git push origin v${{ env.VERSION }}
+          \`\`\`
+
+          ---
+
+          ${RELEASE_NOTES}
+          ")
+          
+          echo "## Pull Request Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "PR: ${PR_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review and merge the PR" >> $GITHUB_STEP_SUMMARY
+          echo "2. Create the tag: \`git tag -a v${{ env.VERSION }} -m \"Release v${{ env.VERSION }}\"\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Push the tag: \`git push origin v${{ env.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
           
       - name: Summary
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             echo "::notice::Dry run complete. No changes committed."
           else
-            echo "::notice::Release v${{ env.VERSION }} prepared and tagged. Build workflows should trigger automatically."
+            echo "::notice::Release PR created for v${{ env.VERSION }}. Review, merge, then create tag to trigger builds."
           fi
