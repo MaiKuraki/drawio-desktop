@@ -226,7 +226,7 @@ jobs:
           cp release-notes.md /tmp/release-notes.md
           
           # Create release branch
-          git checkout -b "release/v${{ env.VERSION }}"
+          git checkout -b "releases/v${{ env.VERSION }}"
           
           # Remove generated files that shouldn't be committed
           rm -f audit-results.json audit-report.txt outdated-report.txt release-notes.md
@@ -240,7 +240,7 @@ jobs:
           
           Automated by prepare-release workflow"
           
-          git push origin "release/v${{ env.VERSION }}"
+          git push origin "releases/v${{ env.VERSION }}"
           
           # Restore release notes for PR creation
           cp /tmp/release-notes.md release-notes.md
@@ -256,7 +256,7 @@ jobs:
           # Create PR
           PR_URL=$(gh pr create \
             --base dev \
-            --head "release/v${{ env.VERSION }}" \
+            --head "releases/v${{ env.VERSION }}" \
             --title "Release v${{ env.VERSION }}" \
             --body "## Release Preparation
 
