@@ -7,6 +7,10 @@ on:
         description: 'Release version (e.g., 29.0.4)'
         required: true
         type: string
+      previous_version:
+        description: 'Previous version for changelog (e.g., 29.0.3). Leave empty to auto-detect.'
+        required: false
+        type: string
       drawio_ref:
         description: 'draw.io ref to use (tag, branch, or commit). Leave empty to use v{version}'
         required: false
@@ -93,6 +97,49 @@ jobs:
           
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate release notes
+        run: |
+          VERSION="${{ env.VERSION }}"
+          PREV_VERSION="${{ inputs.previous_version }}"
+          
+          # Auto-detect previous version if not provided
+          if [ -z "$PREV_VERSION" ]; then
+            PREV_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "")
+          fi
+          
+          # Get electron version from package.json
+          ELECTRON_VERSION=$(jq -r '.devDependencies.electron // .dependencies.electron' package.json | sed 's/[\^~]//')
+          echo "ELECTRON_VERSION=$ELECTRON_VERSION" >> $GITHUB_ENV
+          
+          # Get drawio changelog if available
+          DRAWIO_CHANGELOG=""
+          if [ -f "drawio/ChangeLog" ]; then
+            # Extract changelog entries between versions
+            DRAWIO_CHANGELOG=$(cat drawio/ChangeLog | head -100)
+          fi
+          
+          # Generate release notes
+          cat > release-notes.md << EOF
+          ## Release Notes for ${VERSION}
+          
+          [Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/draw.io-${VERSION}-windows-installer.exe)
+          [Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/draw.io-${VERSION}-windows.zip)
+          [macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/draw.io-universal-${VERSION}.dmg)
+          Linux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/drawio-amd64-${VERSION}.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/drawio-x86_64-${VERSION}.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/drawio-x86_64-${VERSION}.rpm)
+          Windows intel x32 releases are marked -ia32-
+          
+          **ChangeLog:**
+          - Uses electron ${ELECTRON_VERSION}.
+          - Updates to [draw.io core ${VERSION}](https://github.com/jgraph/drawio/blob/v${VERSION}/ChangeLog).${PREV_VERSION:+ All changes from ${PREV_VERSION} to ${VERSION} are added in this build.}
+          
+          EOF
+          
+          echo "## Generated Release Notes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat release-notes.md >> $GITHUB_STEP_SUMMARY
+          
+          echo "Release notes generated"
         
       - name: Security audit
         id: audit
@@ -144,6 +191,7 @@ jobs:
             audit-results.json
             audit-report.txt
             outdated-report.txt
+            release-notes.md
           retention-days: 365
           
       - name: Fail if audit has issues
@@ -160,6 +208,7 @@ jobs:
           echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Version | ${{ env.VERSION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Electron | ${{ env.ELECTRON_VERSION }} |" >> $GITHUB_STEP_SUMMARY
           echo "| drawio ref | ${{ env.DRAWIO_REF }} |" >> $GITHUB_STEP_SUMMARY
           echo "| drawio commit | ${{ env.DRAWIO_COMMIT }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Node.js | $(node --version) |" >> $GITHUB_STEP_SUMMARY
