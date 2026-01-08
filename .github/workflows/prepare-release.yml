@@ -97,7 +97,9 @@ jobs:
           grep '"version"' package.json
           
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # Use npm install (not ci) to update package-lock.json with latest versions within semver ranges
+          npm install
 
       - name: Generate release notes
         run: |
@@ -109,38 +111,39 @@ jobs:
             PREV_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "")
           fi
           
-          # Get electron version from package.json
-          ELECTRON_VERSION=$(jq -r '.devDependencies.electron // .dependencies.electron' package.json | sed 's/[\^~]//')
+          # Get electron version from package-lock.json (actual installed version)
+          ELECTRON_VERSION=$(jq -r '.packages["node_modules/electron"].version' package-lock.json)
           echo "ELECTRON_VERSION=$ELECTRON_VERSION" >> $GITHUB_ENV
           
-          # Get drawio changelog if available
-          DRAWIO_CHANGELOG=""
-          if [ -f "drawio/ChangeLog" ]; then
-            # Extract changelog entries between versions
-            DRAWIO_CHANGELOG=$(cat drawio/ChangeLog | head -100)
-          fi
-          
           # Generate release notes
-          cat > release-notes.md << EOF
-          ## Release Notes for ${VERSION}
+          cat > release-notes.md << 'RELEASE_EOF'
+          ## Release Notes for VERSION_PLACEHOLDER
           
-          [Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/draw.io-${VERSION}-windows-installer.exe)
-          [Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/draw.io-${VERSION}-windows.zip)
-          [macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/draw.io-universal-${VERSION}.dmg)
-          Linux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/drawio-amd64-${VERSION}.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/drawio-x86_64-${VERSION}.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v${VERSION}/drawio-x86_64-${VERSION}.rpm)
+          [Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/vVERSION_PLACEHOLDER/draw.io-VERSION_PLACEHOLDER-windows-installer.exe)
+          [Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/vVERSION_PLACEHOLDER/draw.io-VERSION_PLACEHOLDER-windows.zip)
+          [macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/vVERSION_PLACEHOLDER/draw.io-universal-VERSION_PLACEHOLDER.dmg)
+          Linux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/vVERSION_PLACEHOLDER/drawio-amd64-VERSION_PLACEHOLDER.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/vVERSION_PLACEHOLDER/drawio-x86_64-VERSION_PLACEHOLDER.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/vVERSION_PLACEHOLDER/drawio-x86_64-VERSION_PLACEHOLDER.rpm)
           Windows intel x32 releases are marked -ia32-
           
           **ChangeLog:**
-          - Uses electron ${ELECTRON_VERSION}.
-          - Updates to [draw.io core ${VERSION}](https://github.com/jgraph/drawio/blob/v${VERSION}/ChangeLog).${PREV_VERSION:+ All changes from ${PREV_VERSION} to ${VERSION} are added in this build.}
+          - Uses electron ELECTRON_PLACEHOLDER.
+          - Updates to [draw.io core VERSION_PLACEHOLDER](https://github.com/jgraph/drawio/blob/vVERSION_PLACEHOLDER/ChangeLog).PREV_PLACEHOLDER
+          RELEASE_EOF
           
-          EOF
+          # Replace placeholders
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" release-notes.md
+          sed -i "s/ELECTRON_PLACEHOLDER/${ELECTRON_VERSION}/g" release-notes.md
+          if [ -n "$PREV_VERSION" ]; then
+            sed -i "s/PREV_PLACEHOLDER/ All changes from ${PREV_VERSION} to ${VERSION} are added in this build./g" release-notes.md
+          else
+            sed -i "s/PREV_PLACEHOLDER//g" release-notes.md
+          fi
           
           echo "## Generated Release Notes" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           cat release-notes.md >> $GITHUB_STEP_SUMMARY
           
-          echo "Release notes generated"
+          echo "Release notes generated with Electron version: $ELECTRON_VERSION"
         
       - name: Security audit
         id: audit
@@ -229,6 +232,7 @@ jobs:
           git checkout -b "releases/v${{ env.VERSION }}"
           
           # Remove generated files that shouldn't be committed
+          # (package-lock.json IS committed to lock electron version)
           rm -f audit-results.json audit-report.txt outdated-report.txt release-notes.md
           
           git add -A
@@ -236,6 +240,7 @@ jobs:
 
           - Updated drawio submodule to ${{ env.DRAWIO_REF }} (${{ env.DRAWIO_COMMIT }})
           - Updated package.json version to ${{ env.VERSION }}
+          - Updated package-lock.json
           - Electron version: ${{ env.ELECTRON_VERSION }}
           
           Automated by prepare-release workflow"
