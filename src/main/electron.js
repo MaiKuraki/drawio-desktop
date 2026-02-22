@@ -811,7 +811,7 @@ app.whenReady().then(() =>
 														}
 													}
 													
-													fs.writeFileSync(realFileName, data, null, { flag: 'wx' });
+													fs.writeFileSync(realFileName, data, { flag: 'wx' });
 													console.log(curFile + ' -> ' + realFileName);
 												}
 												catch(e)
